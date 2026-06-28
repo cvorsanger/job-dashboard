@@ -1,0 +1,16 @@
+# secrets & personal data
+.env
+*.db
+
+# python
+.venv/
+__pycache__/
+*.pyc
+*.pyo
+
+# node
+node_modules/
+dist/
+
+# documents
+docs/
