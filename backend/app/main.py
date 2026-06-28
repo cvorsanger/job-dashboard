@@ -5,7 +5,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from app.config import settings
 from app.db import engine, Base
-from app.routers import profile
+from app.routers import jobs, profile
 
 
 @asynccontextmanager
@@ -25,3 +25,4 @@ app.add_middleware(
 )
 
 app.include_router(profile.router)
+app.include_router(jobs.router)

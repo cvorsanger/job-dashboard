@@ -49,4 +49,10 @@ export const api = {
     }
     return res.json();
   },
+
+  // jobs
+  listJobs: () => request("/api/jobs"),
+  getJob: (id) => request(`/api/jobs/${id}`),
+  createJob: (data) => request("/api/jobs", { method: "POST", body: JSON.stringify(data) }),
+  updateJob: (id, data) => request(`/api/jobs/${id}`, { method: "PATCH", body: JSON.stringify(data) }),
 };
