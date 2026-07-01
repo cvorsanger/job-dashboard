@@ -1,11 +1,11 @@
 import pytest
 import pytest_asyncio
 from httpx import AsyncClient, ASGITransport
-from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession, async_sessionmaker
+from sqlalchemy.ext.asyncio import create_async_engine, async_sessionmaker
 from unittest.mock import AsyncMock
 
 from app.main import app
-from app.db import Base, get_session
+from app.services.db import Base, get_session
 
 
 @pytest_asyncio.fixture
@@ -33,10 +33,10 @@ async def client(db):
 @pytest.fixture
 def mock_claude(monkeypatch):
     monkeypatch.setattr(
-        "app.claude.clean_resume_text",
+        "app.services.claude.clean_resume_text",
         AsyncMock(return_value="cleaned text"),
     )
     monkeypatch.setattr(
-        "app.claude.parse_resume_fields",
+        "app.services.claude.parse_resume_fields",
         AsyncMock(return_value={"full_name": "Jane"}),
     )

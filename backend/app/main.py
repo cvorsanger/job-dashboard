@@ -4,7 +4,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.config import settings
-from app.db import engine, Base
+from app.services.db import engine, Base
 from app.routers import jobs, profile
 
 @asynccontextmanager
