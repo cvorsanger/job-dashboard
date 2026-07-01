@@ -7,7 +7,6 @@ from app.config import settings
 from app.db import engine, Base
 from app.routers import jobs, profile
 
-
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     async with engine.begin() as conn:

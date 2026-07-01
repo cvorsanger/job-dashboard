@@ -1,32 +1,7 @@
 from anthropic import AsyncAnthropic
-
 from app.config import settings
 
 client = AsyncAnthropic(api_key=settings.anthropic_api_key)
-
-
-async def clean_resume_text(raw_text: str) -> str:
-    """Clean up text extracted from a PDF/DOCX resume.
-
-    PDF extraction often produces broken lines, embedded page numbers, and
-    garbled whitespace. Claude reformats it to readable plain text without
-    adding or removing any content.
-    """
-    response = await client.messages.create(
-        model=settings.model_score,
-        max_tokens=4000,
-        system=(
-            "You are a resume text cleaner. You receive raw text extracted from a PDF or DOCX "
-            "file that may have formatting artifacts: broken lines, extra whitespace, page numbers "
-            "embedded mid-sentence, headers split across lines. Reformat it as clean, readable "
-            "plain text. Preserve ALL content exactly — do not add, remove, or change any "
-            "experience, skills, dates, or other information. Return only the cleaned resume text, "
-            "no commentary."
-        ),
-        messages=[{"role": "user", "content": f"Clean this extracted resume text:\n\n{raw_text}"}],
-    )
-    return response.content[0].text
-
 
 _EXTRACT_TOOL = {
     "name": "extract_resume_fields",
@@ -52,8 +27,33 @@ _EXTRACT_TOOL = {
 }
 
 
+async def clean_resume_text(raw_text: str) -> str:
+    """Clean up text extracted from a PDF/DOCX resume.
+
+    PDF extraction often produces broken lines, embedded page numbers, and
+    garbled whitespace. Claude reformats it to readable plain text without
+    adding or removing any content.
+    """
+    response = await client.messages.create(
+        model=settings.model_score,
+        max_tokens=4000,
+        system=(
+            "You are a resume text cleaner. You receive raw text extracted from a PDF or DOCX "
+            "file that may have formatting artifacts: broken lines, extra whitespace, page numbers "
+            "embedded mid-sentence, headers split across lines. Reformat it as clean, readable "
+            "plain text. Preserve ALL content exactly — do not add, remove, or change any "
+            "experience, skills, dates, or other information. Return only the cleaned resume text, "
+            "no commentary."
+        ),
+        messages=[{"role": "user", "content": f"Clean this extracted resume text:\n\n{raw_text}"}],
+    )
+
+    return response.content[0].text
+
 async def parse_resume_fields(cleaned_text: str) -> dict:
-    """Extract structured profile fields from cleaned resume text using tool_use."""
+    """
+    Extract structured profile fields from cleaned resume text using tool_use.
+    """
     response = await client.messages.create(
         model=settings.model_score,
         max_tokens=1024,
@@ -66,7 +66,9 @@ async def parse_resume_fields(cleaned_text: str) -> dict:
         tool_choice={"type": "tool", "name": "extract_resume_fields"},
         messages=[{"role": "user", "content": f"Extract fields from this resume:\n\n{cleaned_text}"}],
     )
+
     for block in response.content:
         if block.type == "tool_use" and block.name == "extract_resume_fields":
             return block.input
+
     return {}

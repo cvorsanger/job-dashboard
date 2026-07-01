@@ -1,4 +1,4 @@
-from app.models import Profile
+from backend.app.models.profile import Profile
 
 
 def profile_to_text(p: Profile | None) -> str:
