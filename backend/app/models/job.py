@@ -1,4 +1,4 @@
-from app.db import Base
+from app.services.db import Base
 from datetime import date, datetime
 from sqlalchemy import Date, DateTime, Integer, JSON, String, Text, func
 from sqlalchemy.orm import Mapped, mapped_column, relationship
@@ -27,5 +27,6 @@ class Job(Base):
     updated_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now(), onupdate=func.now())
 
     resume_versions: Mapped[list["ResumeVersion"]] = relationship(
-        back_populates="job", cascade="all, delete-orphan"
+        back_populates="job",
+        cascade="all, delete-orphan"
     )

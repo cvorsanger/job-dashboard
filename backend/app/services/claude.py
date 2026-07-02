@@ -3,7 +3,7 @@ from app.config import settings
 
 client = AsyncAnthropic(api_key=settings.anthropic_api_key)
 
-_EXTRACT_TOOL = {
+EXTRACT_TOOL = {
     "name": "extract_resume_fields",
     "description": "Extract structured fields from resume text.",
     "input_schema": {
@@ -26,6 +26,16 @@ _EXTRACT_TOOL = {
     },
 }
 
+RESUME_CLEAN_PROMPT =  """You are a resume text cleaner. You receive raw text extracted from a PDF or DOCX
+    file that may have formatting artifacts: broken lines, extra whitespace, page numbers
+    embedded mid-sentence, headers split across lines. Reformat it as clean, readable
+    plain text. Preserve ALL content exactly — do not add, remove, or change any
+    experience, skills, dates, or other information. Return only the cleaned resume text,
+    no commentary."""
+
+RESUME_PARSE_PROMPT =  """You are a resume parser. Extract the requested fields from the resume text.
+    Only extract information that is explicitly present — never invent or infer values.
+    Return empty strings or empty arrays for any field that cannot be found."""
 
 async def clean_resume_text(raw_text: str) -> str:
     """Clean up text extracted from a PDF/DOCX resume.
@@ -35,16 +45,9 @@ async def clean_resume_text(raw_text: str) -> str:
     adding or removing any content.
     """
     response = await client.messages.create(
-        model=settings.model_score,
+        model=settings.model_sonnet_46,
         max_tokens=4000,
-        system=(
-            "You are a resume text cleaner. You receive raw text extracted from a PDF or DOCX "
-            "file that may have formatting artifacts: broken lines, extra whitespace, page numbers "
-            "embedded mid-sentence, headers split across lines. Reformat it as clean, readable "
-            "plain text. Preserve ALL content exactly — do not add, remove, or change any "
-            "experience, skills, dates, or other information. Return only the cleaned resume text, "
-            "no commentary."
-        ),
+        system=(RESUME_CLEAN_PROMPT),
         messages=[{"role": "user", "content": f"Clean this extracted resume text:\n\n{raw_text}"}],
     )
 
@@ -55,14 +58,10 @@ async def parse_resume_fields(cleaned_text: str) -> dict:
     Extract structured profile fields from cleaned resume text using tool_use.
     """
     response = await client.messages.create(
-        model=settings.model_score,
+        model=settings.model_sonnet_46,
         max_tokens=1024,
-        system=(
-            "You are a resume parser. Extract the requested fields from the resume text. "
-            "Only extract information that is explicitly present — never invent or infer values. "
-            "Return empty strings or empty arrays for any field that cannot be found."
-        ),
-        tools=[_EXTRACT_TOOL],
+        system=(RESUME_PARSE_PROMPT),
+        tools=[EXTRACT_TOOL],
         tool_choice={"type": "tool", "name": "extract_resume_fields"},
         messages=[{"role": "user", "content": f"Extract fields from this resume:\n\n{cleaned_text}"}],
     )
