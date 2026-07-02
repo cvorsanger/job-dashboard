@@ -14,6 +14,8 @@ NPM = None
 UVICORN = None
 
 def set_system_settings():
+    global UVICORN
+    global NPM
     if sys.platform == "win32":
         UVICORN = os.path.join(BACKEND_DIR, ".venv", "Scripts", "uvicorn.exe")
         NPM = "npm.cmd"
