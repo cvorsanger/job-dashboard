@@ -1,8 +1,15 @@
 const scoreClass = (s) => s >= 70 ? "score-green" : s >= 45 ? "score-amber" : "score-red";
 
-export default function JobCard({ job, stageColor, onClick }) {
+export default function JobCard({ job, stageColor, onClick, onDragStart, onDragEnd, isDragging }) {
   return (
-    <div className="card" style={{ "--stage": stageColor }} onClick={onClick}>
+    <div
+      className="card"
+      style={{ "--stage": stageColor, opacity: isDragging ? 0.4 : 1 }}
+      draggable
+      onDragStart={onDragStart}
+      onDragEnd={onDragEnd}
+      onClick={onClick}
+    >
       <div className="card-top">
         {job.priority === "high" && <span className="priority-dot priority-high" />}
         {job.priority === "low" && <span className="priority-dot priority-low" />}

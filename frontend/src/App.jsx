@@ -21,6 +21,7 @@ export default function App() {
   const [showProfile, setShowProfile] = useState(false);
   const [showAddJob, setShowAddJob] = useState(false);
   const [toast, setToast] = useState(null);
+  const [draggedJobId, setDraggedJobId] = useState(null);
 
   useEffect(() => {
     api.listJobs().then(setJobs).catch(() => {});
@@ -42,6 +43,32 @@ export default function App() {
 
   const stageJobs = (key) => jobs.filter((j) => j.status === key);
 
+  const handleDragStart = (job) => (e) => {
+    setDraggedJobId(job.id);
+    e.dataTransfer.setData("jobId", String(job.id));
+    e.dataTransfer.setData("previousStatus", job.status);
+  };
+
+  const handleDrop = (targetStage) => async (e) => {
+    e.currentTarget.classList.remove("drop-target");
+    const jobId = parseInt(e.dataTransfer.getData("jobId"), 10);
+    const previousStatus = e.dataTransfer.getData("previousStatus");
+    setDraggedJobId(null);
+
+    if (targetStage === previousStatus) return;
+
+    setJobs((prev) => prev.map((j) => j.id === jobId ? { ...j, status: targetStage } : j));
+
+    try {
+      const updated = await api.updateJob(jobId, { status: targetStage });
+      setJobs((prev) => prev.map((j) => j.id === updated.id ? updated : j));
+      if (selectedJob?.id === updated.id) setSelectedJob(updated);
+    } catch (err) {
+      setJobs((prev) => prev.map((j) => j.id === jobId ? { ...j, status: previousStatus } : j));
+      flash(err.message || "Couldn't move — only forward moves are allowed");
+    }
+  };
+
   return (
     <>
       <div className="topbar">
@@ -56,7 +83,13 @@ export default function App() {
         {STAGES.map((stage) => {
           const cards = stageJobs(stage.key);
           return (
-            <div key={stage.key} className="column">
+            <div
+              key={stage.key}
+              className="column"
+              onDragOver={(e) => { e.preventDefault(); e.currentTarget.classList.add("drop-target"); }}
+              onDragLeave={(e) => { if (!e.currentTarget.contains(e.relatedTarget)) e.currentTarget.classList.remove("drop-target"); }}
+              onDrop={handleDrop(stage.key)}
+            >
               <div className="column-head">
                 <span className="pip" style={{ background: stage.color }} />
                 <span className="name">{stage.label}</span>
@@ -70,6 +103,9 @@ export default function App() {
                       job={job}
                       stageColor={stage.color}
                       onClick={() => setSelectedJob(job)}
+                      onDragStart={handleDragStart(job)}
+                      onDragEnd={() => setDraggedJobId(null)}
+                      isDragging={draggedJobId === job.id}
                     />
                   ))
               }
