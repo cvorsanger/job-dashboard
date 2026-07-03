@@ -48,6 +48,10 @@ export default function JobDrawer({ job, onUpdated, onClose, flash }) {
   const handleScore = async () => {
     setScoring(true);
     try {
+      if (form.jd_text.trim() !== (job.jd_text ?? "").trim()) {
+        const saved = await api.updateJob(job.id, { jd_text: form.jd_text || null });
+        onUpdated(saved);
+      }
       const updated = await api.scoreJob(job.id);
       onUpdated(updated);
       flash("Scored");
