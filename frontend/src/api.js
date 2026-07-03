@@ -56,4 +56,5 @@ export const api = {
   createJob: (data) => request("/api/jobs", { method: "POST", body: JSON.stringify(data) }),
   updateJob: (id, data) => request(`/api/jobs/${id}`, { method: "PATCH", body: JSON.stringify(data) }),
   scoreJob: (id) => request(`/api/jobs/${id}/score`, { method: "POST" }),
+  deleteJob: (id) => request(`/api/jobs/${id}`, { method: "DELETE" }),
 };

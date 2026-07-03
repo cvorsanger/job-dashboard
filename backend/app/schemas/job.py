@@ -1,6 +1,7 @@
+from app.enums import Statuses
 from app.schemas.orm_model import ORMModel
 from datetime import date, datetime
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict
 
 class JobIn(BaseModel):
     """
@@ -21,6 +22,8 @@ class JobOut(ORMModel):
     """
     Full job data returned from the API.
     """
+    model_config = ORMModel.model_config | ConfigDict(use_enum_values=True)
+
     company: str
     created_at: datetime
     date_applied: datetime | None
@@ -37,13 +40,15 @@ class JobOut(ORMModel):
     priority: str
     salary: str | None
     source: str | None
-    status: str
+    status: Statuses
     title: str
 
 class JobUpdate(BaseModel):
     """
     Partial update payload for an existing job; all fields are optional.
     """
+    model_config = ConfigDict(use_enum_values=True)
+
     company: str | None = None
     deadline: date | None = None
     interview_at: datetime | None = None
@@ -53,5 +58,5 @@ class JobUpdate(BaseModel):
     notes: str | None = None
     priority: str | None = None
     salary: str | None = None
-    status: str | None = None
+    status: Statuses | None = None
     title: str | None = None

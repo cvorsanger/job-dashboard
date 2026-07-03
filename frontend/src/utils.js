@@ -1,3 +1,7 @@
+export const SCORE_LABELS = { skills: "Skills", experience: "Experience", location: "Location", role_scope: "Role scope" };
+export const SCORE_ENTRIES = Object.entries(SCORE_LABELS);
+export const scoreClass = (s) => s >= 70 ? "score-green" : s >= 45 ? "score-amber" : "score-red";
+
 export function normalizeSalary(raw) {
   if (!raw || !raw.trim()) return null;
 

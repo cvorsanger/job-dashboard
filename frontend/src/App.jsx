@@ -41,6 +41,11 @@ export default function App() {
     setSelectedJob(updated);
   };
 
+  const handleJobDeleted = (id) => {
+    setJobs((prev) => prev.filter((j) => j.id !== id));
+    setSelectedJob(null);
+  };
+
   const stageJobs = (key) => jobs.filter((j) => j.status === key);
 
   const handleDragStart = (job) => (e) => {
@@ -118,6 +123,7 @@ export default function App() {
         <JobDrawer
           job={selectedJob}
           onUpdated={handleJobUpdated}
+          onDeleted={handleJobDeleted}
           onClose={() => setSelectedJob(null)}
           flash={flash}
         />

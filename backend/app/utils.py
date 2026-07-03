@@ -1,11 +1,14 @@
 from app.models.profile import Profile
 
-
 def profile_to_text(p: Profile | None) -> str:
+    ''''''
     if p is None:
         return "(no profile on file)"
+    
     links = p.links or {}
+
     link_lines = [f"  {k}: {v}" for k, v in links.items() if v]
+
     parts = [
         f"Name: {p.full_name or ''}",
         f"Email: {p.email or ''}",

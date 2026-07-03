@@ -1,10 +1,10 @@
 import { useState } from "react";
 import { api } from "../api";
-import { normalizeSalary } from "../utils";
+import { normalizeSalary, scoreClass, SCORE_LABELS } from "../utils";
 
 const STATUSES = ["sourced", "reviewed", "ready", "applied", "interview", "offer", "closed"];
 
-export default function JobDrawer({ job, onUpdated, onClose, flash }) {
+export default function JobDrawer({ job, onUpdated, onDeleted, onClose, flash }) {
   const [form, setForm] = useState({
     company: job.company,
     title: job.title,
@@ -19,6 +19,7 @@ export default function JobDrawer({ job, onUpdated, onClose, flash }) {
   });
   const [saving, setSaving] = useState(false);
   const [scoring, setScoring] = useState(false);
+  const [deleting, setDeleting] = useState("idle"); // idle | confirming | deleting
 
   const set = (k) => (e) => setForm((f) => ({ ...f, [k]: e.target.value }));
 
@@ -42,6 +43,17 @@ export default function JobDrawer({ job, onUpdated, onClose, flash }) {
     } catch (err) {
       flash(err.message);
       setSaving(false);
+    }
+  };
+
+  const handleConfirmDelete = async () => {
+    setDeleting("deleting");
+    try {
+      await api.deleteJob(job.id);
+      onDeleted(job.id);
+    } catch (err) {
+      flash(err.message);
+      setDeleting("idle");
     }
   };
 
@@ -146,14 +158,13 @@ export default function JobDrawer({ job, onUpdated, onClose, flash }) {
             <details>
               <summary>Fit score: {job.fit_score}</summary>
               <div className="score-breakdown">
-                {["skills", "experience", "location", "role_scope"].map((key) => {
+                {Object.entries(SCORE_LABELS).map(([key, label]) => {
                   const cat = job.fit_notes?.[key];
                   if (!cat) return null;
-                  const cls = cat.score >= 70 ? "score-green" : cat.score >= 45 ? "score-amber" : "score-red";
                   return (
                     <div key={key} className="score-row">
-                      <span className={`score ${cls}`}>{cat.score}</span>
-                      <span className="score-label">{key.replace("_", " ")}</span>
+                      <span className={`score ${scoreClass(cat.score)}`}>{cat.score}</span>
+                      <span className="score-label">{label}</span>
                       <span className="score-note">{cat.note}</span>
                     </div>
                   );
@@ -174,6 +185,16 @@ export default function JobDrawer({ job, onUpdated, onClose, flash }) {
             >
               {scoring ? "Scoring…" : "Score"}
             </button>
+            {deleting !== "idle" ? (
+              <>
+                <button className="btn danger" onClick={handleConfirmDelete} disabled={deleting === "deleting"}>
+                  {deleting === "deleting" ? "Deleting…" : "Confirm delete"}
+                </button>
+                <button className="btn ghost" onClick={() => setDeleting("idle")} disabled={deleting === "deleting"}>Cancel</button>
+              </>
+            ) : (
+              <button className="btn ghost danger" onClick={() => setDeleting("confirming")}>Delete</button>
+            )}
           </div>
         </div>
       </div>

@@ -1,4 +1,5 @@
 from app.services.db import Base
+from app.enums import Statuses
 from datetime import date, datetime
 from sqlalchemy import Date, DateTime, Integer, JSON, String, Text, func
 from sqlalchemy.orm import Mapped, mapped_column, relationship
@@ -30,3 +31,6 @@ class Job(Base):
         back_populates="job",
         cascade="all, delete-orphan"
     )
+
+    def update_status(self, target: Statuses) -> None:
+        self.status = target.value

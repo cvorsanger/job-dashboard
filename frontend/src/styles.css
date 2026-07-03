@@ -78,6 +78,10 @@ button { font-family: inherit; cursor: pointer; }
 .btn.ghost:hover { color: var(--ink); background: #f2f3f6; }
 .btn:disabled { opacity: 0.5; cursor: not-allowed; }
 .btn.small { padding: 5px 9px; font-size: 12px; }
+.btn.danger { background: #dc2626; border-color: #dc2626; color: #fff; }
+.btn.danger:hover { background: #b91c1c; }
+.btn.ghost.danger { color: #dc2626; background: transparent; border-color: transparent; }
+.btn.ghost.danger:hover { background: #fef2f2; color: #dc2626; }
 
 /* --- board ----------------------------------------------------------------- */
 .board {
@@ -144,6 +148,31 @@ button { font-family: inherit; cursor: pointer; }
   padding: 2px 7px;
   border-radius: 999px;
 }
+
+/* fit score tooltip */
+.score-wrapper {
+  position: relative;
+  display: inline-flex;
+}
+.score-tooltip {
+  display: none;
+  position: absolute;
+  top: calc(100% + 6px);
+  right: 0;
+  z-index: 30;
+  width: 260px;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+  padding: 10px;
+  flex-direction: column;
+  gap: 7px;
+  pointer-events: none;
+}
+.score-wrapper:hover .score-tooltip { display: flex; }
+.score-tooltip .score-label { min-width: 80px; }
+.score.small { font-size: 10px; padding: 1px 5px; }
 
 /* fit score color variants */
 .score {

@@ -1,16 +1,4 @@
-const scoreClass = (s) => s >= 70 ? "score-green" : s >= 45 ? "score-amber" : "score-red";
-
-const buildTooltip = (notes) => {
-  if (!notes) return undefined;
-  const labels = { skills: "Skills", experience: "Experience", location: "Location", role_scope: "Role scope" };
-  return Object.entries(labels)
-    .map(([k, label]) => {
-      const cat = notes[k];
-      return cat ? `${label}: ${cat.score} — ${cat.note}` : null;
-    })
-    .filter(Boolean)
-    .join("\n");
-};
+import { scoreClass, SCORE_ENTRIES } from "../utils";
 
 export default function JobCard({ job, stageColor, onClick, onDragStart, onDragEnd, isDragging }) {
   return (
@@ -27,11 +15,23 @@ export default function JobCard({ job, stageColor, onClick, onDragStart, onDragE
         {job.priority === "low" && <span className="priority-dot priority-low" />}
         <span className="company">{job.company}</span>
         {job.fit_score != null && (
-          <span
-            className={`score ${scoreClass(job.fit_score)}`}
-            title={buildTooltip(job.fit_notes)}
-          >
-            {job.fit_score}
+          <span className="score-wrapper">
+            <span className={`score ${scoreClass(job.fit_score)}`}>{job.fit_score}</span>
+            {job.fit_notes && (
+              <div className="score-tooltip">
+                {SCORE_ENTRIES.map(([k, label]) => {
+                  const cat = job.fit_notes[k];
+                  if (!cat) return null;
+                  return (
+                    <div key={k} className="score-row">
+                      <span className={`score small ${scoreClass(cat.score)}`}>{cat.score}</span>
+                      <span className="score-label">{label}</span>
+                      <span className="score-note">{cat.note}</span>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
           </span>
         )}
       </div>

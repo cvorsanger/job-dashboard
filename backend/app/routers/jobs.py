@@ -1,10 +1,8 @@
-from app.models import Job
-from app.models.profile import Profile
+from app.models import Job, Profile
 from app.services.db import get_session
 from app.services import claude
 from app.schemas import JobIn, JobOut, JobUpdate
-from app.transitions import maybe_advance
-from app.utils import profile_to_text
+from app.enums import Statuses
 from datetime import datetime, timezone
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy import select
@@ -25,6 +23,19 @@ async def create_job(body: JobIn, db: AsyncSession = Depends(get_session)):
     await db.refresh(job)
 
     return job
+
+@router.delete("/{job_id}", status_code=204)
+async def delete_job(job_id: int, db: AsyncSession = Depends(get_session)):
+    '''
+    Deletes a job by ID
+    '''
+    job = await db.get(Job, job_id)
+    
+    if not job:
+        raise HTTPException(404, "Job not found")
+    
+    await db.delete(job)
+    await db.commit()
 
 @router.get("/{job_id}", response_model=JobOut)
 async def get_job(job_id: int, db: AsyncSession = Depends(get_session)):
@@ -65,7 +76,7 @@ async def score_job(job_id: int, db: AsyncSession = Depends(get_session)):
     result = await db.execute(select(Profile).limit(1))
     profile = result.scalar_one_or_none()
 
-    scores = await claude.score_job(job.jd_text, profile_to_text(profile))
+    scores = await claude.score_job(job.jd_text, profile.to_string() if profile else "(no profile on file)")
 
     job.fit_score = scores["overall"]
     job.fit_notes = {
@@ -74,7 +85,7 @@ async def score_job(job_id: int, db: AsyncSession = Depends(get_session)):
         "location":   {"score": scores["location"],   "note": scores["location_note"]},
         "role_scope": {"score": scores["role_scope"], "note": scores["role_scope_note"]},
     }
-    maybe_advance(job, "reviewed")
+    job.update_status(Statuses.REVIEWED)
 
     job.updated_at = datetime.now(timezone.utc)
     await db.commit()
