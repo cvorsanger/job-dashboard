@@ -2,9 +2,9 @@ import asyncio
 import io
 
 from app.models import Profile
+from app.schemas import ProfileIn, ProfileOut
 from app.services import claude
 from app.services.db import get_session
-from app.schemas import ProfileIn, ProfileOut
 from datetime import datetime, timezone
 from fastapi import APIRouter, Depends, File, HTTPException, UploadFile
 from sqlalchemy import select

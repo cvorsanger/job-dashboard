@@ -51,27 +51,6 @@ async def list_jobs(db: AsyncSession = Depends(get_session)):
 
     return result.scalars().all()
 
-@router.patch("/{job_id}", response_model=JobOut)
-async def update_job(job_id: int, body: JobUpdate, db: AsyncSession = Depends(get_session)):
-    '''
-    Updates an existing job
-    '''
-    job = await db.get(Job, job_id)
-
-    if not job:
-        raise HTTPException(404, "Job not found")
-
-    for k, v in body.model_dump(exclude_unset=True).items():
-        setattr(job, k, v)
-
-    job.updated_at = datetime.now(timezone.utc)
-
-    await db.commit()
-    await db.refresh(job)
-
-    return job
-
-
 @router.post("/{job_id}/score", response_model=JobOut)
 async def score_job(job_id: int, db: AsyncSession = Depends(get_session)):
     '''
@@ -98,6 +77,26 @@ async def score_job(job_id: int, db: AsyncSession = Depends(get_session)):
     maybe_advance(job, "reviewed")
 
     job.updated_at = datetime.now(timezone.utc)
+    await db.commit()
+    await db.refresh(job)
+
+    return job
+
+@router.patch("/{job_id}", response_model=JobOut)
+async def update_job(job_id: int, body: JobUpdate, db: AsyncSession = Depends(get_session)):
+    '''
+    Updates an existing job
+    '''
+    job = await db.get(Job, job_id)
+
+    if not job:
+        raise HTTPException(404, "Job not found")
+
+    for k, v in body.model_dump(exclude_unset=True).items():
+        setattr(job, k, v)
+
+    job.updated_at = datetime.now(timezone.utc)
+
     await db.commit()
     await db.refresh(job)
 
