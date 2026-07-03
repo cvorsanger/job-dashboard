@@ -157,6 +157,31 @@ button { font-family: inherit; cursor: pointer; }
 .score-amber { background: #fef3c7; color: #92400e; }
 .score-red   { background: #fee2e2; color: #991b1b; }
 
+/* --- score breakdown (fit score detail) ------------------------------------ */
+.score-breakdown {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-top: 10px;
+}
+.score-row {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+}
+.score-label {
+  min-width: 90px;
+  font-weight: 500;
+  font-size: 12px;
+  text-transform: capitalize;
+  flex-shrink: 0;
+}
+.score-note {
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.4;
+}
+
 /* priority dot */
 .priority-dot { width: 6px; height: 6px; border-radius: 50%; flex-shrink: 0; margin-top: 3px; }
 .priority-high { background: #ef4444; }
