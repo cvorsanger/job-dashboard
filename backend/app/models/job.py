@@ -1,6 +1,7 @@
 from app.services.db import Base
+from app.schemas import JobUpdate
 from app.enums import Statuses
-from datetime import date, datetime
+from datetime import date, datetime, timezone
 from sqlalchemy import Date, DateTime, Integer, JSON, String, Text, func
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -32,5 +33,40 @@ class Job(Base):
         cascade="all, delete-orphan"
     )
 
+    def save_score(self, scores: dict) -> None:
+
+        '''
+        Parses a Job score from Claude and updates the appropiate fields
+        '''
+        self.fit_score = scores["overall"]
+        self.fit_notes = {
+            "skills":     {"score": scores["skills"],     "note": scores["skills_note"]},
+            "experience": {"score": scores["experience"], "note": scores["experience_note"]},
+            "location":   {"score": scores["location"],   "note": scores["location_note"]},
+            "role_scope": {"score": scores["role_scope"], "note": scores["role_scope_note"]},
+       }
+
+        self.update_status(Statuses.REVIEWED)
+
+        self.update_updatetime()
+
+    def update_all(self, update: JobUpdate) -> None:
+        '''
+        Updates all fields given by an update call
+        '''
+        for k, v in update.model_dump(exclude_unset=True).items():
+            setattr(self, k, v)
+
+        self.update_updatetime()
+
     def update_status(self, target: Statuses) -> None:
+        '''
+        Changes the status of a Job
+        '''
         self.status = target.value
+
+    def update_updatetime(self) -> None:
+        '''
+        Updates the updated_at field to thw time now
+        '''
+        self.updated_at = datetime.now(timezone.utc)
