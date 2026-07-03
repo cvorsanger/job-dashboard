@@ -71,3 +71,56 @@ async def parse_resume_fields(cleaned_text: str) -> dict:
             return block.input
 
     return {}
+
+
+SCORE_TOOL = {
+    "name": "score_job",
+    "description": "Score a candidate's fit for a job across four dimensions.",
+    "input_schema": {
+        "type": "object",
+        "properties": {
+            "overall":         {"type": "integer", "description": "Overall fit score 0-100."},
+            "skills":          {"type": "integer", "description": "Technical skills match 0-100."},
+            "skills_note":     {"type": "string",  "description": "One sentence explaining skills score."},
+            "experience":      {"type": "integer", "description": "Seniority and years of experience match 0-100."},
+            "experience_note": {"type": "string",  "description": "One sentence explaining experience score."},
+            "location":        {"type": "integer", "description": "Remote/hybrid/on-site compatibility 0-100."},
+            "location_note":   {"type": "string",  "description": "One sentence explaining location score."},
+            "role_scope":      {"type": "integer", "description": "Role responsibilities and scope fit 0-100."},
+            "role_scope_note": {"type": "string",  "description": "One sentence explaining role scope score."},
+        },
+        "required": [
+            "overall",
+            "skills", "skills_note",
+            "experience", "experience_note",
+            "location", "location_note",
+            "role_scope", "role_scope_note",
+        ],
+    },
+}
+
+SCORE_PROMPT = (
+    "You are a job-fit evaluator. Compare the candidate's profile to the job description "
+    "and score their fit honestly across four dimensions. "
+    "Do not inflate scores — 50 means average fit, 70 is strong, 90+ is exceptional. "
+    "Score each dimension 0–100 and provide one concise sentence of reasoning per dimension. "
+    "overall is your holistic judgment, not a simple average."
+)
+
+
+async def score_job(jd_text: str, profile_text: str) -> dict:
+    response = await client.messages.create(
+        model=settings.model_sonnet_46,
+        max_tokens=1024,
+        system=SCORE_PROMPT,
+        tools=[SCORE_TOOL],
+        tool_choice={"type": "tool", "name": "score_job"},
+        messages=[{
+            "role": "user",
+            "content": f"Candidate profile:\n{profile_text}\n\nJob description:\n{jd_text}",
+        }],
+    )
+    for block in response.content:
+        if block.type == "tool_use" and block.name == "score_job":
+            return block.input
+    return {}
