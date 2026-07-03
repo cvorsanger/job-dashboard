@@ -18,6 +18,7 @@ export default function JobDrawer({ job, onUpdated, onClose, flash }) {
     jd_text: job.jd_text ?? "",
   });
   const [saving, setSaving] = useState(false);
+  const [scoring, setScoring] = useState(false);
 
   const set = (k) => (e) => setForm((f) => ({ ...f, [k]: e.target.value }));
 
@@ -41,6 +42,19 @@ export default function JobDrawer({ job, onUpdated, onClose, flash }) {
     } catch (err) {
       flash(err.message);
       setSaving(false);
+    }
+  };
+
+  const handleScore = async () => {
+    setScoring(true);
+    try {
+      const updated = await api.scoreJob(job.id);
+      onUpdated(updated);
+      flash("Scored");
+    } catch (err) {
+      flash(err.message);
+    } finally {
+      setScoring(false);
     }
   };
 
@@ -124,9 +138,37 @@ export default function JobDrawer({ job, onUpdated, onClose, flash }) {
             <textarea value={form.jd_text} onChange={set("jd_text")} rows={7} placeholder="Paste the job description here…" />
           </div>
 
+          {job.fit_score != null && (
+            <details>
+              <summary>Fit score: {job.fit_score}</summary>
+              <div className="score-breakdown">
+                {["skills", "experience", "location", "role_scope"].map((key) => {
+                  const cat = job.fit_notes?.[key];
+                  if (!cat) return null;
+                  const cls = cat.score >= 70 ? "score-green" : cat.score >= 45 ? "score-amber" : "score-red";
+                  return (
+                    <div key={key} className="score-row">
+                      <span className={`score ${cls}`}>{cat.score}</span>
+                      <span className="score-label">{key.replace("_", " ")}</span>
+                      <span className="score-note">{cat.note}</span>
+                    </div>
+                  );
+                })}
+              </div>
+            </details>
+          )}
+
           <div className="actions">
             <button className="btn primary" onClick={handleSave} disabled={saving}>
               {saving ? "Saving…" : "Save changes"}
+            </button>
+            <button
+              className="btn ghost"
+              onClick={handleScore}
+              disabled={scoring || !form.jd_text.trim()}
+              title={!form.jd_text.trim() ? "Paste a job description first" : undefined}
+            >
+              {scoring ? "Scoring…" : "Score"}
             </button>
           </div>
         </div>
