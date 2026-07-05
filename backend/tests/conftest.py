@@ -1,12 +1,16 @@
+import os
 import pytest
 import pytest_asyncio
-from httpx import AsyncClient, ASGITransport
-from sqlalchemy.ext.asyncio import create_async_engine, async_sessionmaker
-from unittest.mock import AsyncMock
+
+# Settings() requires this at import time; tests mock all Claude calls,
+# so a placeholder keeps discovery working when the real key isn't set.
+os.environ.setdefault("ANTHROPIC_API_KEY", "test-key")
 
 from app.main import app
 from app.services.db import Base, get_session
-
+from httpx import AsyncClient, ASGITransport
+from sqlalchemy.ext.asyncio import create_async_engine, async_sessionmaker
+from unittest.mock import AsyncMock
 
 @pytest_asyncio.fixture
 async def db():
@@ -18,7 +22,6 @@ async def db():
         yield session
     await engine.dispose()
 
-
 @pytest_asyncio.fixture
 async def client(db):
     async def override_get_session():
@@ -28,7 +31,6 @@ async def client(db):
     async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as c:
         yield c
     app.dependency_overrides.clear()
-
 
 @pytest.fixture
 def mock_claude(monkeypatch):

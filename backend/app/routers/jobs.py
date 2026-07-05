@@ -23,40 +23,37 @@ async def create_job(body: JobIn, db: AsyncSession = Depends(get_session)):
         await db.refresh(job)
 
         return job
-    except:
-        raise httpUtils.create_exception_result()
+    except Exception as error:
+        raise httpUtils.create_exception_result(error)
 
 @router.delete("/{job_id}", status_code=204)
 async def delete_job(job_id: int, db: AsyncSession = Depends(get_session)):
     '''
     Deletes a job by ID
     '''
+    job = await db.get(Job, job_id)
+
+    if not job:
+        raise httpUtils.create_not_found_result("Job not found")
+
     try:
-        job = await db.get(Job, job_id)
-    
-        if not job:
-            raise httpUtils.create_not_found_result("Job not found")
-    
         await db.delete(job)
         await db.commit()
 
-    except:
-        raise httpUtils.create_exception_result()
+    except Exception as error:
+        raise httpUtils.create_exception_result(error)
 
 @router.get("/{job_id}", response_model=JobOut)
 async def get_job(job_id: int, db: AsyncSession = Depends(get_session)):
     '''
     Retrieves a single jobs
     '''
-    try:
-        job = await db.get(Job, job_id)
+    job = await db.get(Job, job_id)
 
-        if not job:
-            raise httpUtils.create_not_found_result("Job not found")
+    if not job:
+        raise httpUtils.create_not_found_result("Job not found")
 
-        return job
-    except:
-        raise httpUtils.create_exception_result()
+    return job
 
 @router.get("", response_model=list[JobOut])
 async def list_jobs(db: AsyncSession = Depends(get_session)):
@@ -71,22 +68,22 @@ async def list_jobs(db: AsyncSession = Depends(get_session)):
         )
 
         return result.scalars().all()
-    except:
-        raise httpUtils.create_exception_result()
+    except Exception as error:
+        raise httpUtils.create_exception_result(error)
 
 @router.post("/{job_id}/score", response_model=JobOut)
 async def score_job(job_id: int, db: AsyncSession = Depends(get_session)):
     '''
     Scores a job's fit using Claude and advances status from sourced to reviewed
     '''
-    try:
-        #Fetch a the Job accosiated to the input id
-        job = await db.get(Job, job_id)
-        if not job:
-            raise httpUtils.create_not_found_result("Job not found")
-        if not job.jd_text or not job.jd_text.strip():
-            raise httpUtils.create_exception_result("Job missing description to score with")
+    #Fetch a the Job accosiated to the input id
+    job = await db.get(Job, job_id)
+    if not job:
+        raise httpUtils.create_not_found_result("Job not found")
+    if not job.jd_text or not job.jd_text.strip():
+        raise httpUtils.create_exception_result("Job missing description to score with")
 
+    try:
         result = await db.execute(select(Profile).limit(1))
         profile = result.scalar_one_or_none()
 
@@ -95,31 +92,31 @@ async def score_job(job_id: int, db: AsyncSession = Depends(get_session)):
             profile.to_string() if profile else "(no profile on file)"
         )
 
-        job.save_score(score["overall"])
+        job.save_score(score)
 
         await db.commit()
         await db.refresh(job)
 
         return job
-    except:
-        httpUtils.create_exception_result()
+    except Exception as error:
+        raise httpUtils.create_exception_result(error)
 
 @router.patch("/{job_id}", response_model=JobOut)
 async def update_job(job_id: int, body: JobUpdate, db: AsyncSession = Depends(get_session)):
     '''
     Updates an existing job
     '''
+    job = await db.get(Job, job_id)
+
+    if not job:
+        raise httpUtils.create_not_found_result("Job not found")
+
     try:
-        job = await db.get(Job, job_id)
-
-        if not job:
-            raise httpUtils.create_not_found_result("Job not found")
-
         job.update_all(body)
 
         await db.commit()
         await db.refresh(job)
 
         return job
-    except:
-        raise httpUtils.create_exception_result()
+    except Exception as error:
+        raise httpUtils.create_exception_result(error)
