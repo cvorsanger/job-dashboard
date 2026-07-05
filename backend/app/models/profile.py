@@ -1,5 +1,6 @@
+from app.schemas.profile import ProfileIn
 from app.services.db import Base
-from datetime import datetime
+from datetime import datetime, timezone
 from sqlalchemy import DateTime, Integer, JSON, Text, func
 from sqlalchemy.orm import Mapped, mapped_column
 
@@ -37,3 +38,9 @@ class Profile(Base):
         ]
 
         return "\n".join(parts)
+    
+    def update_all(self, update: ProfileIn) -> None:
+        for field, value in update.model_dump().items():
+            setattr(self, field, value)
+
+        self.updated_at = datetime.now(timezone.utc)

@@ -5,6 +5,7 @@ from app.models import Profile
 from app.schemas import ProfileIn, ProfileOut
 from app.services import claude
 from app.services.db import get_session
+from app.utils.http_utils import HttpUtils
 from datetime import datetime, timezone
 from fastapi import APIRouter, Depends, File, HTTPException, UploadFile
 from sqlalchemy import select
@@ -33,7 +34,7 @@ async def parse_resume(file: UploadFile = File(...)):
     content = await file.read()
 
     if len(content) > MAX_UPLOAD_BYTES:
-        raise HTTPException(413, "File too large (max 10 MB)")
+        raise HttpUtils.create_to_large_result("File too large (max 10 MB)")
 
     name = (file.filename or "").lower()
 
@@ -45,7 +46,7 @@ async def parse_resume(file: UploadFile = File(...)):
         elif name.endswith(".txt"):
             raw = content.decode("utf-8", errors="replace")
         else:
-            raise HTTPException(400, "Unsupported file type. Drop a PDF, DOCX, or TXT file.")
+            raise HttpUtils.create_exception_result("Unsupported file type. Drop a PDF, DOCX, or TXT file.")
     except HTTPException:
         raise
     except Exception as e:
@@ -67,9 +68,15 @@ async def get_profile(db: AsyncSession = Depends(get_session)):
     '''
     Gets the saved user profile in the database
     '''
-    result = await db.execute(select(Profile).limit(1))
+    try:
+        result = await db.execute(select(Profile).limit(1))
 
-    return result.scalar_one_or_none()
+        if result is None:
+            raise HttpUtils.create_not_found_result("Profile not found")
+        
+        return result.scalar_one_or_none()
+    except:
+        raise HttpUtils.create_exception_result()
 
 
 @router.put("", response_model=ProfileOut)
@@ -77,19 +84,19 @@ async def save_profile(body: ProfileIn, db: AsyncSession = Depends(get_session))
     '''
     Upserts a user profile to the database
     '''
-    result = await db.execute(select(Profile).limit(1))
-    profile = result.scalar_one_or_none()
+    try:
+        result = await db.execute(select(Profile).limit(1))
+        profile = result.scalar_one_or_none()
 
-    if profile is None:
-        profile = Profile(**body.model_dump())
-        db.add(profile)
-    else:
-        for field, value in body.model_dump().items():
-            setattr(profile, field, value)
+        if profile is None:
+            profile = Profile(**body.model_dump())
+            db.add(profile)
+        else:
+            profile.update_all(body)
 
-        profile.updated_at = datetime.now(timezone.utc)
+        await db.commit()
+        await db.refresh(profile)
 
-    await db.commit()
-    await db.refresh(profile)
-
-    return profile
+        return profile
+    except:
+        raise HttpUtils.create_exception_result()
