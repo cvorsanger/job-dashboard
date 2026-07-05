@@ -16,24 +16,45 @@ npm run dev                     # http://localhost:5173 — proxies /api to back
 
 # Both servers together (from repo root)
 python start.py
+
+# Tests (from backend/)
+pytest
 ```
 
 `ANTHROPIC_API_KEY` must be set as a **system environment variable** (not in any file). `jobs.db` is created automatically on first `uvicorn` run — no migration step needed.
 
-No test files yet. `backend/tests/conftest.py` has `db`, `client`, and `mock_claude` async fixtures ready to use. Run with `pytest` from `backend/` (asyncio mode is configured in `pytest.ini`).
+## Testing
+
+Tests live in `backend/tests/`, organized to mirror `app/`: `tests/models/`, `tests/routers/`, `tests/services/`, `tests/utils/`. Conventions:
+
+- File names: `*_tests.py` only (configured via `python_files` in `pytest.ini`) — e.g. `tests/models/job_tests.py`. Dots in filenames (`x.tests.py`) break Python module imports — don't use them.
+- Test **functions** must still start with `test_` — pytest's function discovery is separate from the file pattern and is not customized.
+- Every test uses explicit `# Arrange`, `# Act`, `# Assert` section comments (omit `# Arrange` when there's no setup).
+- `conftest.py` provides `db` (in-memory SQLite session), `client` (httpx `AsyncClient` with the session dependency overridden), and `mock_claude` (patches `clean_resume_text`/`parse_resume_fields`). It also sets a placeholder `ANTHROPIC_API_KEY` before importing `app`, so test discovery works in environments without the real key (e.g. VS Code).
+- All Claude calls are mocked — patch `app.services.claude.<fn>` with `AsyncMock`, or mock `app.services.claude.client.messages.create` and build `MagicMock` response blocks (`block.type = "tool_use"`, `block.input = {...}`).
 
 ## Architecture
 
 ### Pipeline model
-Jobs move through 7 statuses: `sourced → reviewed → ready → applied → interview → offer → closed`. Status advances are centralized in `backend/app/transitions.py` via `maybe_advance(job, target)` — call this from routers instead of setting `job.status` directly (except for `applied`, which is unconditional). This prevents invalid backward transitions.
+Jobs move through 7 statuses defined in the `Statuses` enum (`backend/app/enums/statuses.py`): `sourced → reviewed → ready → applied → interview → offer → closed`. Status changes go through `Job.update_status(target)`; `Job.save_score(scores)` advances to `reviewed` as part of scoring. There is no transition guard — `PATCH /api/jobs/{id}` accepts any valid `Statuses` value.
+
+### Models own their mutations (`backend/app/models/`)
+ORM classes carry their update logic — call these instead of setting attributes in routers:
+- `Job.save_score(scores)` — writes `fit_score`/`fit_notes` from a Claude score dict, advances status to `reviewed`.
+- `Job.update_all(update)` — applies a `JobUpdate` with `exclude_unset=True` (partial update: omitted fields untouched).
+- `Profile.update_all(update)` — applies a full `ProfileIn` dump (**full overwrite**: omitted fields reset to defaults — intentional, since `PUT /api/profile` is a full upsert).
+- `Profile.to_string()` — serializes the profile to the plain-text block used in Claude prompts. Update this if new profile fields need to reach Claude.
+- `ResumeVersion` and `Application` models exist but have no routers yet.
+
+### Error handling (`backend/app/utils/http_utils.py`)
+`HttpUtils` provides static factories that **return** (not raise) `HTTPException`s: `create_exception_result` (400 — accepts an `Exception | str` and surfaces `str(error)` as the detail), `create_not_found_result` (404), `create_to_large_result` (413), `create_unprocessable_result` (422). Router pattern: validate and raise 404/400 **before** the `try` block, then wrap the actual work with `except Exception as error: raise httpUtils.create_exception_result(error)`. Don't raise intentional HTTPExceptions inside the `try` — the catch-all converts them to 400s.
 
 ### Claude integration (`backend/app/services/claude.py`)
-Two functions currently implemented, both using `model_sonnet_46` from `config.py`:
+Three functions, all using `model_sonnet_46` from `config.py` (`model_cover` / Opus is reserved for future cover-letter work):
 
-- **Field extraction** (`parse_resume_fields`): `AsyncAnthropic` + `tool_use` with a strict JSON schema. `tool_choice` forces the tool to fire, guaranteeing a parseable dict. Iterate `response.content` for the `tool_use` block; return `block.input`.
+- **Field extraction** (`parse_resume_fields`): `AsyncAnthropic` + `tool_use` with a strict JSON schema. `tool_choice` forces the tool to fire, guaranteeing a parseable dict. Iterate `response.content` for the `tool_use` block; return `block.input` (empty dict if none).
 - **Text cleanup** (`clean_resume_text`): Plain `messages.create` call, result is `response.content[0].text`.
-
-`backend/app/utils.py` — `profile_to_text(profile)` serializes a `Profile` ORM object to a plain-text block used in Claude prompts. Update this if new profile fields need to reach Claude.
+- **Job scoring** (`score_job(jd_text, profile_text)`): `tool_use` returning `overall` plus per-dimension scores/notes (`skills`, `experience`, `location`, `role_scope`).
 
 ### Resume parse flow
 `POST /api/profile/parse-resume` runs `clean_resume_text` and `parse_resume_fields` in parallel via `asyncio.gather`, then returns `{"text": ..., "fields": {...}}`. The frontend merges `fields` into form state with a "fill empty only" strategy — existing non-blank values are not overwritten.
@@ -42,10 +63,10 @@ Two functions currently implemented, both using `model_sonnet_46` from `config.p
 SQLite via `aiosqlite`. SQLAlchemy `JSON` type for all structured fields (replaces `JSONB`/`ARRAY`). Tables auto-created at startup via `Base.metadata.create_all`. No migration tooling — for schema changes, drop and recreate `jobs.db` (it's local data, not production).
 
 ### Jobs API (`backend/app/routers/jobs.py`)
-Registered at `/api/jobs`. Endpoints: `POST /api/jobs` (create), `GET /api/jobs` (list, newest first), `GET /api/jobs/{id}`, `PATCH /api/jobs/{id}` (partial update via `JobUpdate` schema — all fields optional).
+Registered at `/api/jobs`. Endpoints: `POST /api/jobs` (create), `GET /api/jobs` (list, newest first), `GET /api/jobs/{id}`, `PATCH /api/jobs/{id}` (partial update via `JobUpdate` schema — all fields optional), `DELETE /api/jobs/{id}` (204), `POST /api/jobs/{id}/score` (scores fit via Claude against the saved profile; 400 if the job has no `jd_text`).
 
 ### Profile API (`backend/app/routers/profile.py`)
-Registered at `/api/profile`. Endpoints: `GET /api/profile` (returns profile or null), `PUT /api/profile` (upsert full profile), `POST /api/profile/parse-resume` (accepts PDF/DOCX/TXT upload, returns `{"text": ..., "fields": {...}}`). Only one profile row ever exists.
+Registered at `/api/profile`. Endpoints: `GET /api/profile` (returns profile or null), `PUT /api/profile` (upsert full profile), `POST /api/profile/parse-resume` (accepts PDF/DOCX/TXT upload ≤10 MB, returns `{"text": ..., "fields": {...}}`). Only one profile row ever exists.
 
 ### Frontend state
 `App.jsx` owns the jobs list and `selectedJob`. Cards call `setSelectedJob(job)` to open `JobDrawer`. After any mutation (create or update), the returned job object replaces its entry in the list — no full refetch needed. After streaming AI actions, components call `api.getJob(id)` for a clean refresh instead of an empty PATCH.
