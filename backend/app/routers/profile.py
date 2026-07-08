@@ -6,7 +6,6 @@ from app.schemas import ProfileIn, ProfileOut
 from app.services import claude
 from app.services.db import get_session
 from app.utils.http_utils import HttpUtils
-from datetime import datetime, timezone
 from fastapi import APIRouter, Depends, File, HTTPException, UploadFile
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -25,6 +24,21 @@ def _extract_docx(content: bytes) -> str:
     from docx import Document
     doc = Document(io.BytesIO(content))
     return "\n".join(p.text for p in doc.paragraphs)
+
+@router.get("", response_model=ProfileOut | None)
+async def get_profile(db: AsyncSession = Depends(get_session)):
+    '''
+    Gets the saved user profile in the database
+    '''
+    try:
+        result = await db.execute(select(Profile).limit(1))
+
+        if result is None:
+            raise HttpUtils.create_not_found_result("Profile not found")
+        
+        return result.scalar_one_or_none()
+    except Exception as error:
+        raise HttpUtils.create_exception_result(error)
 
 @router.post("/parse-resume")
 async def parse_resume(file: UploadFile = File(...)):
@@ -62,23 +76,6 @@ async def parse_resume(file: UploadFile = File(...)):
 
     return {"text": cleaned, "fields": fields}
 
-
-@router.get("", response_model=ProfileOut | None)
-async def get_profile(db: AsyncSession = Depends(get_session)):
-    '''
-    Gets the saved user profile in the database
-    '''
-    try:
-        result = await db.execute(select(Profile).limit(1))
-
-        if result is None:
-            raise HttpUtils.create_not_found_result("Profile not found")
-        
-        return result.scalar_one_or_none()
-    except:
-        raise HttpUtils.create_exception_result()
-
-
 @router.put("", response_model=ProfileOut)
 async def save_profile(body: ProfileIn, db: AsyncSession = Depends(get_session)):
     '''
@@ -98,5 +95,5 @@ async def save_profile(body: ProfileIn, db: AsyncSession = Depends(get_session))
         await db.refresh(profile)
 
         return profile
-    except:
-        raise HttpUtils.create_exception_result()
+    except Exception as error:
+        raise HttpUtils.create_exception_result(error)
