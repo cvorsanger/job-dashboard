@@ -236,3 +236,48 @@ async def test_patch_job_404_on_missing(client):
 
     # Assert
     assert resp.status_code == 404
+
+@pytest.mark.asyncio
+async def test_update_job_422_on_backward_status(client, db):
+    # Arrange
+    job = Job(company="Acme", title="Engineer", status="reviewed")
+    db.add(job)
+    await db.commit()
+    await db.refresh(job)
+
+    # Act
+    resp = await client.patch(f"/api/jobs/{job.id}", json={"status": "sourced"})
+
+    # Assert
+    assert resp.status_code == 422
+
+
+@pytest.mark.asyncio
+async def test_update_job_forward_status_succeeds(client, db):
+    # Arrange
+    job = Job(company="Acme", title="Engineer", status="sourced")
+    db.add(job)
+    await db.commit()
+    await db.refresh(job)
+
+    # Act
+    resp = await client.patch(f"/api/jobs/{job.id}", json={"status": "reviewed"})
+
+    # Assert
+    assert resp.status_code == 200
+    assert resp.json()["status"] == "reviewed"
+
+@pytest.mark.asyncio
+async def test_update_job_same_status_succeeds(client, db):
+    # Arrange
+    job = Job(company="Acme", title="Engineer", status="reviewed")
+    db.add(job)
+    await db.commit()
+    await db.refresh(job)
+
+    # Act
+    resp = await client.patch(f"/api/jobs/{job.id}", json={"status": "reviewed"})
+
+    # Assert
+    assert resp.status_code == 200
+    assert resp.json()["status"] == "reviewed"

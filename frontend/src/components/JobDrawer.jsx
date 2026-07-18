@@ -1,47 +1,75 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { api } from "../api";
 import { normalizeSalary, scoreClass, SCORE_LABELS } from "../utils";
 
 const STATUSES = ["sourced", "reviewed", "ready", "applied", "interview", "offer", "closed"];
 
+const toForm = (job) => ({
+  company: job.company,
+  title: job.title,
+  link: job.link ?? "",
+  location: job.location ?? "",
+  salary: job.salary ?? "",
+  priority: job.priority,
+  status: job.status,
+  deadline: job.deadline ?? "",
+  notes: job.notes ?? "",
+  jd_text: job.jd_text ?? "",
+});
+
+const initialDraft = (job) => ({ jobId: job.id, form: toForm(job), baseline: toForm(job) });
+
 export default function JobDrawer({ job, onUpdated, onDeleted, onClose, flash }) {
-  const [form, setForm] = useState({
-    company: job.company,
-    title: job.title,
-    link: job.link ?? "",
-    location: job.location ?? "",
-    salary: job.salary ?? "",
-    priority: job.priority,
-    status: job.status,
-    deadline: job.deadline ?? "",
-    notes: job.notes ?? "",
-    jd_text: job.jd_text ?? "",
-  });
+  const [draft, setDraft] = useState(() => initialDraft(job));
+  const { form, baseline } = draft;
   const [saving, setSaving] = useState(false);
   const [scoring, setScoring] = useState(false);
   const [deleting, setDeleting] = useState("idle"); // idle | confirming | deleting
 
-  const set = (k) => (e) => setForm((f) => ({ ...f, [k]: e.target.value }));
+  // Server state changed (score, kanban drag): adopt new values into fields the
+  // user hasn't edited; hard-reset when a different job is selected.
+  useEffect(() => {
+    setDraft((d) => {
+      if (d.jobId !== job.id) return initialDraft(job);
+      const next = toForm(job);
+      const mergedForm = Object.fromEntries(
+        Object.keys(next).map((k) => [k, d.form[k] === d.baseline[k] ? next[k] : d.form[k]])
+      );
+      return { jobId: job.id, form: mergedForm, baseline: next };
+    });
+  }, [job]);
+
+  const set = (k) => (e) =>
+    setDraft((d) => ({ ...d, form: { ...d.form, [k]: e.target.value } }));
+
+  const toPatchValue = {
+    company: (v) => v || undefined,
+    title: (v) => v || undefined,
+    link: (v) => v || null,
+    location: (v) => v || null,
+    salary: (v) => normalizeSalary(v),
+    priority: (v) => v,
+    status: (v) => v,
+    deadline: (v) => v || null,
+    notes: (v) => v || null,
+    jd_text: (v) => v || null,
+  };
+
+  const dirtyKeys = Object.keys(form).filter((k) => form[k] !== baseline[k]);
+  const isDirty = dirtyKeys.length > 0;
 
   const handleSave = async () => {
     setSaving(true);
     try {
-      const updated = await api.updateJob(job.id, {
-        company: form.company || undefined,
-        title: form.title || undefined,
-        link: form.link || null,
-        location: form.location || null,
-        salary: normalizeSalary(form.salary),
-        priority: form.priority,
-        status: form.status,
-        deadline: form.deadline || null,
-        notes: form.notes || null,
-        jd_text: form.jd_text || null,
-      });
+      const updated = await api.updateJob(
+        job.id,
+        Object.fromEntries(dirtyKeys.map((k) => [k, toPatchValue[k](form[k])]))
+      );
       onUpdated(updated);
       flash("Saved");
     } catch (err) {
       flash(err.message);
+    } finally {
       setSaving(false);
     }
   };
@@ -60,9 +88,11 @@ export default function JobDrawer({ job, onUpdated, onDeleted, onClose, flash })
   const handleScore = async () => {
     setScoring(true);
     try {
-      if (form.jd_text.trim() !== (job.jd_text ?? "").trim()) {
-        const saved = await api.updateJob(job.id, { jd_text: form.jd_text || null });
-        onUpdated(saved);
+      if (isDirty) {
+        await api.updateJob(
+          job.id,
+          Object.fromEntries(dirtyKeys.map((k) => [k, toPatchValue[k](form[k])]))
+        );
       }
       const updated = await api.scoreJob(job.id);
       onUpdated(updated);
@@ -127,7 +157,12 @@ export default function JobDrawer({ job, onUpdated, onDeleted, onClose, flash })
               <input
                 value={form.salary}
                 onChange={set("salary")}
-                onBlur={() => setForm((f) => ({ ...f, salary: normalizeSalary(f.salary) ?? "" }))}
+                onBlur={() =>
+                  setDraft((d) => ({
+                    ...d,
+                    form: { ...d.form, salary: normalizeSalary(d.form.salary) ?? "" },
+                  }))
+                }
                 placeholder="$120k–$150k"
               />
             </div>
@@ -174,7 +209,12 @@ export default function JobDrawer({ job, onUpdated, onDeleted, onClose, flash })
           )}
 
           <div className="actions">
-            <button className="btn primary" onClick={handleSave} disabled={saving}>
+            <button
+              className="btn primary"
+              onClick={handleSave}
+              disabled={saving || !isDirty}
+              title={!isDirty ? "No unsaved changes" : undefined}
+            >
               {saving ? "Saving…" : "Save changes"}
             </button>
             <button
