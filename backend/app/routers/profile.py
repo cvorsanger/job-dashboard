@@ -2,6 +2,7 @@ import asyncio
 import io
 
 from app.models import Profile
+from app.models.settings import Settings
 from app.schemas import ProfileIn, ProfileOut
 from app.services import claude
 from app.services.db import get_session
@@ -35,13 +36,13 @@ async def get_profile(db: AsyncSession = Depends(get_session)):
 
         if result is None:
             raise HttpUtils.create_not_found_result("Profile not found")
-        
+
         return result.scalar_one_or_none()
     except Exception as error:
         raise HttpUtils.create_exception_result(error)
 
 @router.post("/parse-resume")
-async def parse_resume(file: UploadFile = File(...)):
+async def parse_resume(file: UploadFile = File(...), db: AsyncSession = Depends(get_session)):
     '''
     Extract text from a dropped resume file and clean it up with Claude.
     '''
@@ -69,9 +70,13 @@ async def parse_resume(file: UploadFile = File(...)):
     if not raw.strip():
         raise HTTPException(422, "No text could be extracted from this file.")
 
+    cfg = await Settings.get_or_create(db)
+    if not cfg.api_key:
+        raise HttpUtils.create_exception_result("Anthropic API key not configured. Add it in Settings.")
+
     cleaned, fields = await asyncio.gather(
-        claude.clean_resume_text(raw),
-        claude.parse_resume_fields(raw),
+        claude.clean_resume_text(raw, api_key=cfg.api_key, model=cfg.model_resume_clean),
+        claude.parse_resume_fields(raw, api_key=cfg.api_key, model=cfg.model_resume_parse),
     )
 
     return {"text": cleaned, "fields": fields}

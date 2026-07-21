@@ -1,4 +1,5 @@
 from app.models import Job, Profile
+from app.models.settings import Settings
 from app.services.db import get_session
 from app.services import claude
 from app.schemas import JobIn, JobOut, JobUpdate
@@ -77,12 +78,15 @@ async def score_job(job_id: int, db: AsyncSession = Depends(get_session)):
     '''
     Scores a job's fit using Claude and advances status from sourced to reviewed
     '''
-    #Fetch a the Job accosiated to the input id
     job = await db.get(Job, job_id)
     if not job:
         raise httpUtils.create_not_found_result("Job not found")
     if not job.jd_text or not job.jd_text.strip():
         raise httpUtils.create_exception_result("Job missing description to score with")
+
+    cfg = await Settings.get_or_create(db)
+    if not cfg.api_key:
+        raise httpUtils.create_exception_result("Anthropic API key not configured. Add it in Settings.")
 
     try:
         result = await db.execute(select(Profile).limit(1))
@@ -90,7 +94,9 @@ async def score_job(job_id: int, db: AsyncSession = Depends(get_session)):
 
         score = await claude.score_job(
             job.jd_text,
-            profile.to_string() if profile else "(no profile on file)"
+            profile.to_string() if profile else "(no profile on file)",
+            api_key=cfg.api_key,
+            model=cfg.model_score,
         )
 
         job.save_score(score)

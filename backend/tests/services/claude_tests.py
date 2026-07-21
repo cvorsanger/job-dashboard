@@ -1,7 +1,7 @@
 import pytest
 
 from app.services.claude import clean_resume_text, parse_resume_fields, score_job
-from unittest.mock import AsyncMock, MagicMock
+from unittest.mock import AsyncMock, MagicMock, patch
 
 MOCK_FIELDS = {
     "full_name": "Jane Doe",
@@ -21,13 +21,16 @@ async def test_clean_resume_text_success(monkeypatch):
     mock_block.text = "Jane Doe\nBackend engineer with 5 years of Python."
     mock_response = MagicMock()
     mock_response.content = [mock_block]
+
+    mock_client = MagicMock()
+    mock_client.messages.create = AsyncMock(return_value=mock_response)
     monkeypatch.setattr(
-        "app.services.claude.client.messages.create",
-        AsyncMock(return_value=mock_response),
+        "app.services.claude.AsyncAnthropic",
+        MagicMock(return_value=mock_client),
     )
 
     # Act
-    result = await clean_resume_text("Jane  Doe\n\n1\nBackend eng ineer...")
+    result = await clean_resume_text("Jane  Doe\n\n1\nBackend eng ineer...", "test-key", "claude-sonnet-4-6")
 
     # Assert
     assert result == "Jane Doe\nBackend engineer with 5 years of Python."
@@ -41,13 +44,16 @@ async def test_parse_resume_fields_success(monkeypatch):
     mock_block.input = MOCK_FIELDS
     mock_response = MagicMock()
     mock_response.content = [mock_block]
+
+    mock_client = MagicMock()
+    mock_client.messages.create = AsyncMock(return_value=mock_response)
     monkeypatch.setattr(
-        "app.services.claude.client.messages.create",
-        AsyncMock(return_value=mock_response),
+        "app.services.claude.AsyncAnthropic",
+        MagicMock(return_value=mock_client),
     )
 
     # Act
-    result = await parse_resume_fields("Jane Doe\nBackend engineer...")
+    result = await parse_resume_fields("Jane Doe\nBackend engineer...", "test-key", "claude-sonnet-4-6")
 
     # Assert
     assert result == MOCK_FIELDS
@@ -60,13 +66,16 @@ async def test_parse_resume_fields_empty_dict_when_no_tool_block(monkeypatch):
     mock_block.name = ""
     mock_response = MagicMock()
     mock_response.content = [mock_block]
+
+    mock_client = MagicMock()
+    mock_client.messages.create = AsyncMock(return_value=mock_response)
     monkeypatch.setattr(
-        "app.services.claude.client.messages.create",
-        AsyncMock(return_value=mock_response),
+        "app.services.claude.AsyncAnthropic",
+        MagicMock(return_value=mock_client),
     )
 
     # Act
-    result = await parse_resume_fields("some resume text")
+    result = await parse_resume_fields("some resume text", "test-key", "claude-sonnet-4-6")
 
     # Assert
     assert result == {}
@@ -90,13 +99,16 @@ async def test_score_job_success(monkeypatch):
     }
     mock_response = MagicMock()
     mock_response.content = [mock_block]
+
+    mock_client = MagicMock()
+    mock_client.messages.create = AsyncMock(return_value=mock_response)
     monkeypatch.setattr(
-        "app.services.claude.client.messages.create",
-        AsyncMock(return_value=mock_response),
+        "app.services.claude.AsyncAnthropic",
+        MagicMock(return_value=mock_client),
     )
 
     # Act
-    result = await score_job("Senior Python Engineer at Acme...", "Name: Jane\nSkills: Python")
+    result = await score_job("Senior Python Engineer at Acme...", "Name: Jane\nSkills: Python", "test-key", "claude-sonnet-4-6")
 
     # Assert
     assert result["overall"] == 75
@@ -114,13 +126,16 @@ async def test_score_job_empty_dict_when_no_tool_block(monkeypatch):
     mock_block.name = ""
     mock_response = MagicMock()
     mock_response.content = [mock_block]
+
+    mock_client = MagicMock()
+    mock_client.messages.create = AsyncMock(return_value=mock_response)
     monkeypatch.setattr(
-        "app.services.claude.client.messages.create",
-        AsyncMock(return_value=mock_response),
+        "app.services.claude.AsyncAnthropic",
+        MagicMock(return_value=mock_client),
     )
 
     # Act
-    result = await score_job("Job description", "Candidate profile")
+    result = await score_job("Job description", "Candidate profile", "test-key", "claude-sonnet-4-6")
 
     # Assert
     assert result == {}

@@ -138,7 +138,7 @@ async def test_list_jobs_success(client, db):
     assert companies == ["New Co", "Old Co"]
 
 @pytest.mark.asyncio
-async def test_score_endpoint_success(client, db, monkeypatch):
+async def test_score_endpoint_success(client, db, settings, monkeypatch):
     # Arrange
     job = Job(company="Acme", title="Engineer", jd_text="We need Python skills.")
     db.add(job)
@@ -160,7 +160,7 @@ async def test_score_endpoint_success(client, db, monkeypatch):
     assert data["fit_notes"]["role_scope"]["score"] == 70
 
 @pytest.mark.asyncio
-async def test_score_endpoint_advances_status_from_sourced(client, db, monkeypatch):
+async def test_score_endpoint_advances_status_from_sourced(client, db, settings, monkeypatch):
     # Arrange
     job = Job(company="Acme", title="Engineer", jd_text="Python role.", status="sourced")
     db.add(job)

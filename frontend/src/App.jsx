@@ -4,6 +4,7 @@ import AddJobModal from "./components/AddJobModal";
 import JobCard from "./components/JobCard";
 import JobDrawer from "./components/JobDrawer";
 import ProfileModal from "./components/ProfileModal";
+import SettingsModal from "./components/SettingsModal";
 
 const STAGES = [
   { key: "sourced",   label: "Sourced",   color: "var(--s-sourced)" },
@@ -19,6 +20,7 @@ export default function App() {
   const [jobs, setJobs] = useState([]);
   const [selectedJob, setSelectedJob] = useState(null);
   const [showProfile, setShowProfile] = useState(false);
+  const [showSettings, setShowSettings] = useState(false);
   const [showAddJob, setShowAddJob] = useState(false);
   const [toast, setToast] = useState(null);
   const [draggedJobId, setDraggedJobId] = useState(null);
@@ -80,6 +82,7 @@ export default function App() {
         <h1>Find Me a Job<span className="dot">.</span></h1>
         <span className="tagline">your job search, one board</span>
         <span className="spacer" />
+        <button className="btn ghost" onClick={() => setShowSettings(true)}>Settings</button>
         <button className="btn ghost" onClick={() => setShowProfile(true)}>Profile</button>
         <button className="btn primary" onClick={() => setShowAddJob(true)}>+ Add job</button>
       </div>
@@ -139,6 +142,10 @@ export default function App() {
 
       {showProfile && (
         <ProfileModal onClose={() => setShowProfile(false)} flash={flash} />
+      )}
+
+      {showSettings && (
+        <SettingsModal onClose={() => setShowSettings(false)} flash={flash} />
       )}
 
       {toast && <div className="toast">{toast}</div>}
