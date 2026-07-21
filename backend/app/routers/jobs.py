@@ -2,6 +2,7 @@ from app.models import Job, Profile
 from app.services.db import get_session
 from app.services import claude
 from app.schemas import JobIn, JobOut, JobUpdate
+from app.enums.statuses import Statuses
 from fastapi import APIRouter, Depends
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -110,6 +111,12 @@ async def update_job(job_id: int, body: JobUpdate, db: AsyncSession = Depends(ge
 
     if not job:
         raise httpUtils.create_not_found_result("Job not found")
+
+    if body.status is not None:
+        order = [s.value for s in Statuses]
+        # < (not <=) allows same-status PATCH, which is a no-op update
+        if order.index(body.status) < order.index(job.status):
+            raise httpUtils.create_unprocessable_result("Cannot move job backward in pipeline")
 
     try:
         job.update_all(body)
