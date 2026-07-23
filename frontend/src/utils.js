@@ -2,6 +2,51 @@ export const SCORE_LABELS = { skills: "Skills", experience: "Experience", locati
 export const SCORE_ENTRIES = Object.entries(SCORE_LABELS);
 export const scoreClass = (s) => s >= 70 ? "score-green" : s >= 45 ? "score-amber" : "score-red";
 
+export function filterAndSortJobs(jobs, { search, sortBy, minScore }) {
+  let result = jobs;
+
+  if (search.trim()) {
+    const q = search.trim().toLowerCase();
+    result = result.filter(
+      (j) =>
+        (j.company || "").toLowerCase().includes(q) ||
+        (j.title || "").toLowerCase().includes(q)
+    );
+  }
+
+  if (minScore > 0) {
+    result = result.filter((j) => j.fit_score != null && j.fit_score >= minScore);
+  }
+
+  result = [...result].sort((a, b) => {
+    switch (sortBy) {
+      case "date_asc":
+        return new Date(a.created_at) - new Date(b.created_at);
+      case "score_desc": {
+        if (a.fit_score == null && b.fit_score == null) return 0;
+        if (a.fit_score == null) return 1;
+        if (b.fit_score == null) return -1;
+        return b.fit_score - a.fit_score;
+      }
+      case "score_asc": {
+        if (a.fit_score == null && b.fit_score == null) return 0;
+        if (a.fit_score == null) return 1;
+        if (b.fit_score == null) return -1;
+        return a.fit_score - b.fit_score;
+      }
+      case "company_asc":
+        return (a.company || "").localeCompare(b.company || "");
+      case "title_asc":
+        return (a.title || "").localeCompare(b.title || "");
+      case "date_desc":
+      default:
+        return new Date(b.created_at) - new Date(a.created_at);
+    }
+  });
+
+  return result;
+}
+
 export function normalizeSalary(raw) {
   if (!raw || !raw.trim()) return null;
 
