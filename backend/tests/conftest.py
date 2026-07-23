@@ -1,12 +1,8 @@
-import os
 import pytest
 import pytest_asyncio
 
-# Settings() requires this at import time; tests mock all Claude calls,
-# so a placeholder keeps discovery working when the real key isn't set.
-os.environ.setdefault("ANTHROPIC_API_KEY", "test-key")
-
 from app.main import app
+from app.models.settings import Settings as AppSettings
 from app.services.db import Base, get_session
 from httpx import AsyncClient, ASGITransport
 from sqlalchemy.ext.asyncio import create_async_engine, async_sessionmaker
@@ -42,3 +38,16 @@ def mock_claude(monkeypatch):
         "app.services.claude.parse_resume_fields",
         AsyncMock(return_value={"full_name": "Jane"}),
     )
+
+@pytest_asyncio.fixture
+async def settings(db):
+    row = AppSettings(
+        id=1,
+        api_key="test-key",
+        model_resume_clean="claude-sonnet-4-6",
+        model_resume_parse="claude-sonnet-4-6",
+        model_score="claude-sonnet-4-6",
+    )
+    db.add(row)
+    await db.commit()
+    return row

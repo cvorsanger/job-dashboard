@@ -1,7 +1,4 @@
 from anthropic import AsyncAnthropic
-from app.config import settings
-
-client = AsyncAnthropic(api_key=settings.anthropic_api_key)
 
 EXTRACT_TOOL = {
     "name": "extract_resume_fields",
@@ -71,28 +68,20 @@ RESUME_PARSE_PROMPT =  """You are a resume parser. Extract the requested fields 
     Only extract information that is explicitly present — never invent or infer values.
     Return empty strings or empty arrays for any field that cannot be found."""
 
-async def clean_resume_text(raw_text: str) -> str:
-    """Clean up text extracted from a PDF/DOCX resume.
-
-    PDF extraction often produces broken lines, embedded page numbers, and
-    garbled whitespace. Claude reformats it to readable plain text without
-    adding or removing any content.
-    """
+async def clean_resume_text(raw_text: str, api_key: str, model: str) -> str:
+    client = AsyncAnthropic(api_key=api_key)
     response = await client.messages.create(
-        model=settings.model_sonnet_46,
+        model=model,
         max_tokens=4000,
-        system=(RESUME_CLEAN_PROMPT),
+        system=RESUME_CLEAN_PROMPT,
         messages=[{"role": "user", "content": f"Clean this extracted resume text:\n\n{raw_text}"}],
     )
-
     return response.content[0].text
 
-async def score_job(jd_text: str, profile_text: str) -> dict:
-    '''
-    Leverages Cluade to score a job's fit
-    '''
+async def score_job(jd_text: str, profile_text: str, api_key: str, model: str) -> dict:
+    client = AsyncAnthropic(api_key=api_key)
     response = await client.messages.create(
-        model=settings.model_sonnet_46,
+        model=model,
         max_tokens=1024,
         system=SCORE_PROMPT,
         tools=[SCORE_TOOL],
@@ -107,21 +96,17 @@ async def score_job(jd_text: str, profile_text: str) -> dict:
             return block.input
     return {}
 
-async def parse_resume_fields(cleaned_text: str) -> dict:
-    """
-    Extract structured profile fields from cleaned resume text using tool_use.
-    """
+async def parse_resume_fields(cleaned_text: str, api_key: str, model: str) -> dict:
+    client = AsyncAnthropic(api_key=api_key)
     response = await client.messages.create(
-        model=settings.model_sonnet_46,
+        model=model,
         max_tokens=1024,
-        system=(RESUME_PARSE_PROMPT),
+        system=RESUME_PARSE_PROMPT,
         tools=[EXTRACT_TOOL],
         tool_choice={"type": "tool", "name": "extract_resume_fields"},
         messages=[{"role": "user", "content": f"Extract fields from this resume:\n\n{cleaned_text}"}],
     )
-
     for block in response.content:
         if block.type == "tool_use" and block.name == "extract_resume_fields":
             return block.input
-
     return {}

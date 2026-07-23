@@ -36,7 +36,7 @@ async def test_get_profile_returns_null_when_empty(client):
     assert resp.json() is None
 
 @pytest.mark.asyncio
-async def test_parse_resume_success(client, mock_claude):
+async def test_parse_resume_success(client, settings, mock_claude):
     # Arrange
     files = {"file": ("resume.txt", b"Jane Doe\nPython developer", "text/plain")}
 

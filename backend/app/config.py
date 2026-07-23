@@ -1,10 +1,8 @@
 from pydantic_settings import BaseSettings, SettingsConfigDict
+from typing import Optional
 
 class Settings(BaseSettings):
-    '''
-    Configs for the backend app. The anthropic_api_key is retrieved as a device environment variable
-    '''
-    anthropic_api_key: str
+    anthropic_api_key: Optional[str] = ""
     database_url: str = "sqlite+aiosqlite:///./jobs.db"
     model_sonnet_46: str = "claude-sonnet-4-6"
     model_cover: str = "claude-opus-4-8"
