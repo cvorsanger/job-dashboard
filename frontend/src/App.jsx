@@ -1,10 +1,13 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { api } from "./api";
 import AddJobModal from "./components/AddJobModal";
+import FilterBar from "./components/FilterBar";
 import JobCard from "./components/JobCard";
 import JobDrawer from "./components/JobDrawer";
 import ProfileModal from "./components/ProfileModal";
 import SettingsModal from "./components/SettingsModal";
+import { filterAndSortJobs } from "./utils";
+
 
 const STAGES = [
   { key: "sourced",   label: "Sourced",   color: "var(--s-sourced)" },
@@ -24,6 +27,15 @@ export default function App() {
   const [showAddJob, setShowAddJob] = useState(false);
   const [toast, setToast] = useState(null);
   const [draggedJobId, setDraggedJobId] = useState(null);
+  const [search, setSearch] = useState("");
+  const [sortBy, setSortBy] = useState("date_desc");
+  const [minScore, setMinScore] = useState(0);
+  const [hiddenStages, setHiddenStages] = useState(new Set());
+
+  const displayJobs = useMemo(
+    () => filterAndSortJobs(jobs, { search, sortBy, minScore }),
+    [jobs, search, sortBy, minScore]
+  );
 
   useEffect(() => {
     api.listJobs().then(setJobs).catch(() => {});
@@ -48,7 +60,7 @@ export default function App() {
     setSelectedJob(null);
   };
 
-  const stageJobs = (key) => jobs.filter((j) => j.status === key);
+  const stageJobs = (key) => displayJobs.filter((j) => j.status === key);
 
   const handleDragStart = (job) => (e) => {
     setDraggedJobId(job.id);
@@ -87,8 +99,20 @@ export default function App() {
         <button className="btn primary" onClick={() => setShowAddJob(true)}>+ Add job</button>
       </div>
 
+      <FilterBar
+        search={search}
+        setSearch={setSearch}
+        sortBy={sortBy}
+        setSortBy={setSortBy}
+        minScore={minScore}
+        setMinScore={setMinScore}
+        hiddenStages={hiddenStages}
+        setHiddenStages={setHiddenStages}
+        stages={STAGES}
+      />
+
       <div className="board">
-        {STAGES.map((stage) => {
+        {STAGES.filter((stage) => !hiddenStages.has(stage.key)).map((stage) => {
           const cards = stageJobs(stage.key);
           return (
             <div
